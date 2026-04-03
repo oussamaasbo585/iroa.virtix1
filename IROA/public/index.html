@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>IROA Video Chat</title>
+<style> 
+body { font-family: Arial; text-align:center; }
+video { width: 45%; border:1px solid #ccc; margin:5px; }
+#chat { margin-top:20px; }
+#messages { height:100px; overflow:auto; border:1px solid #ccc; margin-bottom:5px; }
+</style>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+
+<h1>IROA 💬 Video</h1>
+<p id="status">Esperando usuario...</p>
+
+<video id="localVideo" autoplay muted></video>
+<video id="remoteVideo" autoplay></video>
+
+<div id="chat" style="display:none;">
+  <div id="messages"></div>
+  <input id="input" placeholder="Escribe..." />
+  <button onclick="sendMessage()">Enviar</button>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const status = document.getElementById("status");
+const chat = document.getElementById("chat");
+const messages = document.getElementById("messages");
+const input = document.getElementById("input");
+const localVideo = document.getElementById("localVideo");
+const remoteVideo = document.getElementById("remoteVideo");
+
+let pc;
+let localStream;
+
+// Pedir acceso a cámara
+navigator.mediaDevices.getUserMedia({ video:true, audio:true })
+.then(stream => {
+  localVideo.srcObject = stream;
+  localStream = stream;
+})
+.catch(err => alert("Error al acceder a la cámara: " + err));
+
+socket.on("waiting", () => status.innerText = "Esperando usuario...");
+
+socket.on("matched", async () => {
+  status.innerText = "Conectado!";
+  chat.style.display = "block";
+
+  pc = new RTCPeerConnection();
+
+  // Agregar pistas locales
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+  // Recibir video remoto
+  pc.ontrack = (event) => {
+    remoteVideo.srcObject = event.streams[0];
+  };
+
+  // Enviar señal al otro usuario
+  pc.onicecandidate = (event) => {
+    if(event.candidate) socket.emit("signal", { candidate: event.candidate });
+  };
+
+  // Crear oferta
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  socket.emit("signal", { sdp: pc.localDescription });
+});
+
+socket.on("signal", async (data) => {
+  if(!pc) {
+    pc = new RTCPeerConnection();
+    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    pc.ontrack = (event) => remoteVideo.srcObject = event.streams[0];
+    pc.onicecandidate = (event) => { if(event.candidate) socket.emit("signal", { candidate: event.candidate }); };
+  }
+
+  if(data.sdp) {
+    await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+    if(data.sdp.type === "offer") {
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socket.emit("signal", { sdp: pc.localDescription });
+    }
+  } else if(data.candidate) {
+    await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+  }
+});
+
+socket.on("partnerDisconnected", () => {
+  status.innerText = "El usuario se desconectó.";
+  remoteVideo.srcObject = null;
+  if(pc) pc.close();
+});
+
+function sendMessage() {
+  const msg = input.value;
+  if(msg) {
+    const div = document.createElement("div");
+    div.innerText = "Tú: " + msg;
+    messages.appendChild(div);
+    input.value = "";
+  }
+}
+
+</script>
+
+<a href="/skip"> 
+<button> SKIP </button>
+ </a>
+
+</body>
+</html>
