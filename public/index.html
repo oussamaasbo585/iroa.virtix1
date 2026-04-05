@@ -129,12 +129,22 @@ socket.on("partnerDisconnected", () => {
   if(pc) pc.close();
 });
 
+socket.on("chat", (msg) => {
+  const div = document.createElement("div");
+  div.innerText = "Extraño: " + msg;
+  messages.appendChild(div);
+});
+
 function sendMessage() {
   const msg = input.value;
-  if(msg) {
+
+  if(msg){
     const div = document.createElement("div");
     div.innerText = "Tú: " + msg;
     messages.appendChild(div);
+
+    socket.emit("chat", msg);
+
     input.value = "";
   }
 }

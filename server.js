@@ -49,3 +49,9 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log("Servidor iniciado");
 });
+
+socket.on("chat", (msg) => {
+  if(socket.partner){
+    socket.partner.emit("chat", msg);
+  }
+});
