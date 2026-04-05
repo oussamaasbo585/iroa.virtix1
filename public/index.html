@@ -69,7 +69,12 @@ navigator.mediaDevices.getUserMedia({ video:true, audio:true })
   localVideo.srcObject = stream;
   localStream = stream;
 })
-.catch(err => alert("Error al acceder a la cámara: " + err));
+.catch(err => {
+  console.log("Usuario sin cámara, usando solo chat");
+  status.innerText = "Modo chat (sin cámara)";
+  localStream = new MediaStream();
+});
+
 
 socket.on("waiting", () => status.innerText = "Esperando usuario...");
 
