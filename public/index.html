@@ -3,46 +3,107 @@
 <head>
 <meta charset="UTF-8">
 <title>IROA Video Chat</title>
-<style> 
-body { font-family: Arial; text-align:center; }
-video { width: 45%; border:1px solid #ccc; margin:5px; }
-#chat { margin-top:20px; }
-#messages { height:100px; overflow:auto; border:1px solid #ccc; margin-bottom:5px; }
-.title{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:10px;
+
+<style>
+
+body{
+  margin:0;
+  font-family: Arial;
+  background:#2b2d31;
+  color:white;
+  text-align:center;
 }
 
+/* barra superior */
 
-.logo{
-  width:90px;
-height:90px;
-}
-  
 .topbar{
   position:absolute;
-  top:10px;
-  left:10px;
+  top:15px;
+  left:20px;
 }
 
+.logo{
+  width:60px;
+}
 
+/* título */
+
+h1{
+  margin-top:20px;
+}
+
+/* contenedor video */
+
+.video-container{
+  display:flex;
+  justify-content:center;
+  gap:20px;
+  margin-top:20px;
+}
+
+video{
+  width:400px;
+  border-radius:10px;
+  background:black;
+}
+
+/* chat */
+
+#chat{
+  width:500px;
+  margin:30px auto;
+  background:#313338;
+  padding:15px;
+  border-radius:10px;
+}
+
+#messages{
+  height:150px;
+  overflow-y:auto;
+  background:#1e1f22;
+  padding:10px;
+  border-radius:6px;
+  margin-bottom:10px;
+}
+
+input{
+  width:70%;
+  padding:8px;
+  border:none;
+  border-radius:5px;
+}
+
+button{
+  padding:8px 15px;
+  border:none;
+  border-radius:5px;
+  background:#2c3bdb;
+  color:white;
+  cursor:pointer;
+}
+
+button:hover{
+  background:#2c38be;
+}
 
 </style>
+
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
+
 <body>
 
-  <header class="topbar">
-  <img src="/favicon.ico" class="logo">
+<header class="topbar">
+<img src="/favicon.ico" class="logo">
 </header>
 
-<h1 style="color:rgb(0, 0, 0)">Video 📷 Chat</h1>
+<h1>Video 📷 Chat</h1>
 <p id="status">Esperando usuario...</p>
 
+<div class="video-container">
 <video id="localVideo" autoplay muted></video>
 <video id="remoteVideo" autoplay></video>
+</div>
 
 <div id="chat" style="display:none;">
   <div id="messages"></div>
@@ -51,7 +112,9 @@ height:90px;
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+
 <script>
+
 const socket = io();
 const status = document.getElementById("status");
 const chat = document.getElementById("chat");
@@ -75,70 +138,86 @@ navigator.mediaDevices.getUserMedia({ video:true, audio:true })
   localStream = new MediaStream();
 });
 
-
 socket.on("waiting", () => status.innerText = "Esperando usuario...");
 
 socket.on("matched", async () => {
+
   status.innerText = "Conectado!";
   chat.style.display = "block";
 
   pc = new RTCPeerConnection();
 
-  // Agregar pistas locales
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-  // Recibir video remoto
   pc.ontrack = (event) => {
     remoteVideo.srcObject = event.streams[0];
   };
 
-  // Enviar señal al otro usuario
   pc.onicecandidate = (event) => {
     if(event.candidate) socket.emit("signal", { candidate: event.candidate });
   };
 
-  // Crear oferta
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
   socket.emit("signal", { sdp: pc.localDescription });
+
 });
 
 socket.on("signal", async (data) => {
-  if(!pc) {
+
+  if(!pc){
     pc = new RTCPeerConnection();
+
     localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-    pc.ontrack = (event) => remoteVideo.srcObject = event.streams[0];
-    pc.onicecandidate = (event) => { if(event.candidate) socket.emit("signal", { candidate: event.candidate }); };
+
+    pc.ontrack = (event) => {
+      remoteVideo.srcObject = event.streams[0];
+    };
+
+    pc.onicecandidate = (event) => {
+      if(event.candidate) socket.emit("signal", { candidate: event.candidate });
+    };
   }
 
-  if(data.sdp) {
+  if(data.sdp){
     await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-    if(data.sdp.type === "offer") {
+
+    if(data.sdp.type === "offer"){
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       socket.emit("signal", { sdp: pc.localDescription });
     }
-  } else if(data.candidate) {
+  }
+
+  else if(data.candidate){
     await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
   }
+
 });
 
 socket.on("partnerDisconnected", () => {
+
   status.innerText = "El usuario se desconectó.";
   remoteVideo.srcObject = null;
+
   if(pc) pc.close();
+
 });
 
 socket.on("chat", (msg) => {
+
   const div = document.createElement("div");
   div.innerText = "Extraño: " + msg;
   messages.appendChild(div);
+
 });
 
-function sendMessage() {
+function sendMessage(){
+
   const msg = input.value;
 
   if(msg){
+
     const div = document.createElement("div");
     div.innerText = "Tú: " + msg;
     messages.appendChild(div);
@@ -146,14 +225,16 @@ function sendMessage() {
     socket.emit("chat", msg);
 
     input.value = "";
+
   }
+
 }
 
 </script>
 
-<a href="/skip"> 
-<button> SKIP </button>
- </a>
+<div style="margin-top:20px;">
+<button onclick="location.reload()">NEXT</button>
+</div>
 
 </body>
 </html>
