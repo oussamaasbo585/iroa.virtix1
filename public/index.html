@@ -186,7 +186,9 @@ socket.on("signal", async (data) => {
   ]
 });
 
-    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    if(localStream){
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+}
 
     pc.ontrack = (event) => {
       remoteVideo.srcObject = event.streams[0];
